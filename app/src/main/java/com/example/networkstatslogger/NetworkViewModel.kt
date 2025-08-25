@@ -38,20 +38,27 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
     private val _isLogging = MutableStateFlow(false)
     val isLogging = _isLogging.asStateFlow()
 
+    private val _logIntervalMs = MutableStateFlow("5000")
+    val logIntervalMs = _logIntervalMs.asStateFlow()
+
     private val db = AppDatabase.getDatabase(application)
     private val networkLogDao = db.networkLogDao()
+
+    private val sharedPreferences = application.getSharedPreferences("NetworkLoggerPrefs", Context.MODE_PRIVATE)
 
     val recentLogs: StateFlow<List<NetworkLog>> = networkLogDao.getRecentLogs()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    init {
+        loadLogInterval()
+    }
+
     @RequiresApi(Build.VERSION_CODES.S)
     @SuppressLint("MissingPermission")
     fun startUiUpdates(context: Context) {
-        // Get static device info once for the UI
         _appState.update {
             it.copy(
                 deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID),
-                // THIS IS THE FIX: Corrected the typo from MANUFACTUFACTURER to MANUFACTURER
                 deviceMake = Build.MANUFACTURER,
                 deviceModel = Build.MODEL
             )
@@ -74,7 +81,10 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
                 locationResult.lastLocation?.let { updateLocation(it) }
             }
         }
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
+
+        // THIS IS THE FIX: Use the custom interval for the UI location updates.
+        val interval = _logIntervalMs.value.toLongOrNull() ?: 5000L
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval).build()
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
     }
 
@@ -156,7 +166,11 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun startLogging(context: Context) {
-        val intent = Intent(context, NetworkLoggerService::class.java).apply { action = NetworkLoggerService.ACTION_START }
+        val interval = _logIntervalMs.value.toLongOrNull() ?: 5000L
+        val intent = Intent(context, NetworkLoggerService::class.java).apply {
+            action = NetworkLoggerService.ACTION_START
+            putExtra(NetworkLoggerService.EXTRA_LOG_INTERVAL, interval)
+        }
         ContextCompat.startForegroundService(context, intent)
         _isLogging.value = true
         scheduleFirebaseUpload(context)
@@ -166,7 +180,6 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
         val intent = Intent(context, NetworkLoggerService::class.java).apply { action = NetworkLoggerService.ACTION_STOP }
         context.startService(intent)
         _isLogging.value = false
-      //  cancelFirebaseUpload(context)
     }
 
     private fun scheduleFirebaseUpload(context: Context) {
@@ -174,11 +187,11 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
 
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            "FirebaseUploadWorker",
-            ExistingPeriodicWorkPolicy.KEEP,
-            uploadWorkRequest
-        )
+//        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+//            "FirebaseUploadWorker",
+//            ExistingPeriodicWorkPolicy.KEEP,
+//            uploadWorkRequest
+//        )
     }
 
     fun backupNow(context: Context) {
@@ -227,5 +240,19 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
                 Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
+    }
+    fun onIntervalChange(newInterval: String) {
+        _logIntervalMs.value = newInterval
+    }
+
+    fun saveLogInterval() {
+        val interval = _logIntervalMs.value.toLongOrNull() ?: 5000L
+        sharedPreferences.edit().putLong("log_interval", interval).apply()
+        Toast.makeText(getApplication(), "Interval saved!", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun loadLogInterval() {
+        val interval = sharedPreferences.getLong("log_interval", 5000L)
+        _logIntervalMs.value = interval.toString()
     }
 }

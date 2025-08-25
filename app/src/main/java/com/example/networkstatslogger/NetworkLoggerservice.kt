@@ -24,7 +24,6 @@ import java.util.*
 import java.util.concurrent.Executors
 
 class NetworkLoggerService : Service() {
-
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var telephonyManager: TelephonyManager
     private lateinit var subscriptionManager: SubscriptionManager
@@ -39,9 +38,10 @@ class NetworkLoggerService : Service() {
     companion object {
         const val ACTION_START = "com.example.networkstatslogger.ACTION_START"
         const val ACTION_STOP = "com.example.networkstatslogger.ACTION_STOP"
+        const val EXTRA_LOG_INTERVAL = "com.example.networkstatslogger.EXTRA_LOG_INTERVAL"
         const val NOTIFICATION_CHANNEL_ID = "NetworkLoggerChannel"
         const val NOTIFICATION_ID = 1
-        private const val SAVE_INTERVAL_MS = 5000L
+        private const val DEFAULT_SAVE_INTERVAL_MS = 5000L
     }
 
     init {
@@ -64,7 +64,10 @@ class NetworkLoggerService : Service() {
     @RequiresApi(Build.VERSION_CODES.S)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> startLogging()
+            ACTION_START -> {
+                val interval = intent.getLongExtra(EXTRA_LOG_INTERVAL, DEFAULT_SAVE_INTERVAL_MS)
+                startLogging(interval)
+            }
             ACTION_STOP -> stopLogging()
         }
         return START_STICKY
@@ -72,7 +75,7 @@ class NetworkLoggerService : Service() {
 
     @RequiresApi(Build.VERSION_CODES.S)
     @SuppressLint("MissingPermission")
-    private fun startLogging() {
+    private fun startLogging(intervalMs: Long) {
         startForeground(NOTIFICATION_ID, createNotification("Starting..."))
         currentAppState = currentAppState.copy(
             deviceId = getDeviceId(this),
@@ -88,12 +91,12 @@ class NetworkLoggerService : Service() {
         }
         telephonyManager.registerTelephonyCallback(Executors.newSingleThreadExecutor(), telephonyCallback!!)
 
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs).build()
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
 
         serviceScope.launch {
             while (isActive) {
-                delay(SAVE_INTERVAL_MS)
+                delay(intervalMs)
                 saveCurrentStatsToDb()
             }
         }

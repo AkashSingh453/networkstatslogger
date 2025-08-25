@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -67,6 +69,7 @@ fun StatsScreen(viewModel: NetworkViewModel) {
     val isLogging by viewModel.isLogging.collectAsState()
     val appState by viewModel.appState.collectAsState()
     val recentLogs by viewModel.recentLogs.collectAsState()
+    val logInterval by viewModel.logIntervalMs.collectAsState()
     val context = LocalContext.current
 
     DisposableEffect(Unit) {
@@ -88,9 +91,17 @@ fun StatsScreen(viewModel: NetworkViewModel) {
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(16.dp))
-           // CurrentStatsView(appState = appState)
+         //   CurrentStatsView(appState = appState)
             Spacer(Modifier.height(16.dp))
             Divider()
+            Spacer(Modifier.height(16.dp))
+            // NEW: Interval Settings UI
+            IntervalSettings(
+                interval = logInterval,
+                onIntervalChange = { viewModel.onIntervalChange(it) },
+                onSaveClick = { viewModel.saveLogInterval() },
+                isLogging = isLogging
+            )
             Spacer(Modifier.height(16.dp))
             LoggingControls(
                 isLogging = isLogging,
@@ -110,8 +121,6 @@ fun StatsScreen(viewModel: NetworkViewModel) {
             Spacer(Modifier.height(8.dp))
         }
 
-        // THIS IS THE FIX: The header and items are now inside a horizontally
-        // scrollable container, but within the vertically scrolling LazyColumn.
         item {
             Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 Column {
@@ -124,17 +133,39 @@ fun StatsScreen(viewModel: NetworkViewModel) {
                             textAlign = TextAlign.Center
                         )
                     } else {
-                        // THIS IS THE FIX: Replaced forEach with a standard Column
-                        // to ensure it's part of the same horizontally scrolling block.
-                        Column {
-                            recentLogs.forEach { log ->
-                                LogItem(log = log)
-                                Divider()
-                            }
+                        recentLogs.forEach { log ->
+                            LogItem(log = log)
+                            Divider()
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun IntervalSettings(
+    interval: String,
+    onIntervalChange: (String) -> Unit,
+    onSaveClick: () -> Unit,
+    isLogging: Boolean
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = interval,
+            onValueChange = onIntervalChange,
+            label = { Text("Log Interval (ms)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.weight(1f),
+            enabled = !isLogging
+        )
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = onSaveClick, enabled = !isLogging) {
+            Text("Save")
         }
     }
 }
