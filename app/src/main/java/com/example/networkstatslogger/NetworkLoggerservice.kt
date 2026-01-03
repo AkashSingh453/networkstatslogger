@@ -109,7 +109,8 @@ class NetworkLoggerService : Service() {
 
     private suspend fun saveCurrentStatsToDb() {
         currentAppState.simStats?.let { sim ->
-            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS" +
+                    "", Locale.US)
             val currentTime = sdf.format(Date())
 
             val log = NetworkLog(
