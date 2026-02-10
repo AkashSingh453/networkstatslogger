@@ -1,0 +1,9 @@
+Timestamp,DeviceID,deviceMake,deviceModel,Network provi. , NetworkType,RSRP,RSRQ,SINR,PCI,Downlink(Mbps),Uplink(Mbps),Velocity(km/h),Latitude,Longitude
+2025-12-20 19:58:02.272,65bb12ad684ceba4,samsung,SM-S901E , airtel,LTE (4G),-98 dBm,-16 dB,-3 dB,195,30 Mbps,12 Mbps,0.18 km/h,25.299559,83.004687
+2025-12-20 19:58:01.766,65bb12ad684ceba4,samsung,SM-S901E , airtel,LTE (4G),-98 dBm,-16 dB,-3 dB,195,30 Mbps,12 Mbps,0.15 km/h,25.299559,83.004686
+2025-12-20 19:58:01.258,65bb12ad684ceba4,samsung,SM-S901E , airtel,LTE (4G),-98 dBm,-16 dB,-3 dB,195,30 Mbps,12 Mbps,0.15 km/h,25.299559,83.004686
+2025-12-20 19:58:00.752,65bb12ad684ceba4,samsung,SM-S901E , airtel,LTE (4G),-98 dBm,-16 dB,-3 dB,195,30 Mbps,12 Mbps,N/A,N/A,N/A
+2025-12-20 19:58:00.243,65bb12ad684ceba4,samsung,SM-S901E , airtel,LTE (4G),-98 dBm,-16 dB,-3 dB,195,30 Mbps,12 Mbps,N/A,N/A,N/A
+2025-12-20 19:57:51.156,65bb12ad684ceba4,samsung,SM-S901E , airtel,LTE (4G),-98 dBm,-15 dB,-1 dB,195,30 Mbps,12 Mbps,0.28 km/h,25.299549,83.004662
+2025-12-20 19:52:01.896,65bb12ad684ceba4,samsung,SM-S901E , airtel,LTE (4G),-98 dBm,-15 dB,-3 dB,195,11 Mbps,10 Mbps,1.73 km/h,25.299570,83.004702
+2025-12-20 19:51:56.878,65bb12ad684ceba4,samsung,SM-S901E , airtel,LTE (4G),-98 dBm,-15 dB,-3 dB,195,11 Mbps,10 Mbps,0.00 km/h,25.299571,83.004724
