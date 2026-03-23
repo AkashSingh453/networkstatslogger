@@ -3,7 +3,8 @@
 ## Description
 The Network Stats Logger is a robust application designed to monitor and record network statistics in real-time. It provides insights into bandwidth usage, latency, packet loss, and other critical network metrics, enabling users to optimize their network performance and troubleshoot issues efficiently.
 
-![HomeScreen](https://github.com/user-attachments/assets/7f8a3ee3-63fd-4fda-b874-a90eed18e97e)[network_logs.csv](https://github.com/user-attachments/files/26189655/network_logs.csv)
+![HomeScreen](https://github.com/user-attachments/assets/7f8a3ee3-63fd-4fda-b874-a90eed18e97e)
+<img width="948" height="173" alt="Screenshot 2026-03-23 at 10 59 47 PM" src="https://github.com/user-attachments/assets/e35798da-8146-4dff-99c1-701b7f82dcb6" />
 
 https://github.com/user-attachments/assets/209c5cc4-14d5-495e-ad5c-940706e91f62
 
