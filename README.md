@@ -1,49 +1,44 @@
-# Network Stats Logger
+# 📡 Network Stats Logger
 
 ## Description
-The Network Stats Logger is a robust application designed to monitor and record network statistics in real-time. It provides insights into bandwidth usage, latency, packet loss, and other critical network metrics, enabling users to optimize their network performance and troubleshoot issues efficiently.
+The Network Stats Logger is a background-first Android application designed to continuously monitor and log deep cellular network statistics and GPS coordinates. Built to ensure high uptime, it captures critical telecommunication metrics alongside location data, allowing users to export comprehensive CSV logs for offline network analysis, coverage mapping, and troubleshooting.
 
-![HomeScreen](https://github.com/user-attachments/assets/7f8a3ee3-63fd-4fda-b874-a90eed18e97e)
-<img width="948" height="173" alt="Screenshot 2026-03-23 at 10 59 47 PM" src="https://github.com/user-attachments/assets/e35798da-8146-4dff-99c1-701b7f82dcb6" />
+## ✨ Key Features
+* **Deep Telecom Metrics:** Logs granular network details including Provider, Network Type (LTE, 5G), RSRP, RSRQ, SINR, and PCI.
+* **Location & Velocity Tracking:** Simultaneously records GPS coordinates (Latitude/Longitude) and real-time movement speed (km/h).
+* **Persistent Background Logging:** Designed to run reliably in the background, ensuring data is captured continuously without killing the battery.
+* **Customizable Intervals:** Granular control over data collection with adjustable logging intervals (in milliseconds).
+* **CSV Export:** One-tap export to generate clean, highly detailed CSV files for use in external data analysis tools.
 
-https://github.com/user-attachments/assets/209c5cc4-14d5-495e-ad5c-940706e91f62
+## 🛠️ Tech Stack
+* **UI Toolkit:** Jetpack Compose
+* **Language:** Kotlin
+* **Local Storage:** Room Database
+* **Core APIs:** Android SDK, TelephonyManager, Fused Location Provider
 
+---
 
+## 📱 App Interface & Data Export
 
+<div align="center">
+  <h3>Home Dashboard</h3>
+  <img src="https://github.com/user-attachments/assets/7f8a3ee3-63fd-4fda-b874-a90eed18e97e" width="300" alt="Home Screen"/>
+  <br/><br/>
+  <h3>CSV Export Format</h3>
+  <img src="https://github.com/user-attachments/assets/e35798da-8146-4dff-99c1-701b7f82dcb6" width="100%" alt="CSV Export"/>
+</div>
 
-## Features
-- Real-time monitoring of network statistics
-- Logging of bandwidth usage and latency
-- Visualization of data through various graphs and charts
-- Alerts for unusual network activity or performance issues
-- User-friendly interface for easy interaction
+<br/>
 
-## Installation
-To install the application, clone the repository and follow the installation instructions in the `INSTALL.md` file.
+<div align="center">
+  <h3>Video Demo</h3>
+  <video src="https://github.com/user-attachments/assets/209c5cc4-14d5-495e-ad5c-940706e91f62" controls="controls" style="max-width: 100%;"></video>
+</div>
 
-```bash
-git clone https://github.com/AkashSingh453/networkstatslogger.git
-cd networkstatslogger
-```
+---
 
-## Usage
-Once installed, run the application using:
+## 🚀 Installation
 
-```bash
-python network_logger.py
-```
-
-You can customize logging settings in the configuration file.
-
-## Contributing
-Contributions are welcome! Please read the `CONTRIBUTING.md` file for guidelines on contributing to the project.
-
-## License
-This project is licensed under the MIT License - see the `LICENSE` file for details.
-
-## Authors
-- Akash Singh (AkashSingh453) - Initial work
-
-## Acknowledgments
-- Inspired by various network monitoring tools.
-- Thanks to all the contributors and the open-source community!
+1. Clone the repository:
+   ```bash
+   git clone [https://github.com/AkashSingh453/networkstatslogger.git](https://github.com/AkashSingh453/networkstatslogger.git)
