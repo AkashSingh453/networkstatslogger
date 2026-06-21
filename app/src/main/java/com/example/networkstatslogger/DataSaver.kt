@@ -28,14 +28,39 @@ data class NetworkLog(
 interface NetworkLogDao {
     @Insert
     suspend fun insert(log: NetworkLog)
+
     @Query("SELECT * FROM network_logs ORDER BY id DESC")
     suspend fun getAllLogs(): List<NetworkLog>
+
+    // ── Cursor-based pagination ──────────────────────────────────────────────
+
+    /** Load the first page (newest [pageSize] rows). */
+    @Query("SELECT * FROM network_logs ORDER BY id DESC LIMIT :pageSize")
+    suspend fun getInitialLogs(pageSize: Int): List<NetworkLog>
+
+    /** Load the next page of rows older than [lastId]. */
+    @Query("SELECT * FROM network_logs WHERE id < :lastId ORDER BY id DESC LIMIT :pageSize")
+    suspend fun getLogsBeforeId(lastId: Int, pageSize: Int): List<NetworkLog>
+
+    /** Live count of rows newer than [anchorId] — drives the "N new logs" badge. */
+    @Query("SELECT COUNT(*) FROM network_logs WHERE id > :anchorId")
+    fun countLogsNewerThan(anchorId: Int): Flow<Int>
+
+    /** Fetch all rows newer than [anchorId] for the prepend operation (newest first). */
+    @Query("SELECT * FROM network_logs WHERE id > :anchorId ORDER BY id DESC")
+    suspend fun getLogsNewerThanId(anchorId: Int): List<NetworkLog>
+
+    // ────────────────────────────────────────────────────────────────────────
+
     @Query("SELECT * FROM network_logs ORDER BY id DESC LIMIT 10")
     fun getRecentLogs(): Flow<List<NetworkLog>>
+
     @Query("DELETE FROM network_logs")
     suspend fun clearAllLogs()
+
     @Query("SELECT * FROM network_logs ORDER BY id ASC LIMIT :chunkSize")
     suspend fun getOldestLogs(chunkSize: Int): List<NetworkLog>
+
     @Query("DELETE FROM network_logs WHERE id IN (:logIds)")
     suspend fun deleteLogsByIds(logIds: List<Int>)
 }

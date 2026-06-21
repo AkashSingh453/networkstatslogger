@@ -8,11 +8,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,8 +31,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.networkstatslogger.ui.theme.NetworkstatsloggerTheme
 import com.google.accompanist.permissions.*
-import java.text.SimpleDateFormat
-import java.util.*
 
 class MainActivity : ComponentActivity() {
 
@@ -39,7 +41,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             NetworkstatsloggerTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     val permissions = remember {
                         listOf(
                             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -63,12 +68,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Main screen
+// ─────────────────────────────────────────────────────────────────────────────
+
 @RequiresApi(Build.VERSION_CODES.S)
 @Composable
 fun StatsScreen(viewModel: NetworkViewModel) {
     val isLogging by viewModel.isLogging.collectAsState()
     val appState by viewModel.appState.collectAsState()
-    val recentLogs by viewModel.recentLogs.collectAsState()
     val logInterval by viewModel.logIntervalMs.collectAsState()
     val context = LocalContext.current
 
@@ -84,18 +92,19 @@ fun StatsScreen(viewModel: NetworkViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            Text("Network & GPS Logger", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "Network & GPS Logger",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "${appState.deviceMake} ${appState.deviceModel} (ID: ${appState.deviceId})",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(16.dp))
-         //   CurrentStatsView(appState = appState)
-            Spacer(Modifier.height(16.dp))
             Divider()
             Spacer(Modifier.height(16.dp))
-            // NEW: Interval Settings UI
             IntervalSettings(
                 interval = logInterval,
                 onIntervalChange = { viewModel.onIntervalChange(it) },
@@ -117,25 +126,134 @@ fun StatsScreen(viewModel: NetworkViewModel) {
             Spacer(Modifier.height(16.dp))
             Divider()
             Spacer(Modifier.height(8.dp))
-            Text("Recent Logs", style = MaterialTheme.typography.titleLarge)
+            Text("Network Logs", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
         }
 
         item {
-            Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                Column {
-                    LogHeader()
-                    Divider()
-                    if (recentLogs.isEmpty()) {
-                        Text(
-                            "Start logging to see recent entries here.",
-                            modifier = Modifier.width(1400.dp).padding(16.dp),
-                            textAlign = TextAlign.Center
-                        )
-                    } else {
-                        recentLogs.forEach { log ->
+            PaginatedLogsSection(viewModel = viewModel)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paginated logs section
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun PaginatedLogsSection(viewModel: NetworkViewModel) {
+    val logs by viewModel.paginatedLogs.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMoreLogs by viewModel.hasMoreLogs.collectAsState()
+    val newLogsCount by viewModel.newLogsCount.collectAsState()
+
+    val listState = rememberLazyListState()
+
+    // Load the initial page once when this composable first enters composition.
+    LaunchedEffect(Unit) {
+        viewModel.loadInitialLogs()
+    }
+
+    // Trigger next-page fetch when the user scrolls near the bottom.
+    // Uses derivedStateOf so the lambda only runs when the derived value changes
+    // (not on every frame), preventing redundant loadMoreLogs() calls.
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val total = listState.layoutInfo.totalItemsCount
+            total > 0 && lastVisible >= total - 5
+        }
+    }
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) viewModel.loadMoreLogs()
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        // ── "N new logs" banner ────────────────────────────────────────────
+        if (newLogsCount > 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .clickable { viewModel.prependNewLogs() }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "↑ $newLogsCount new log${if (newLogsCount == 1) "" else "s"} — tap to load",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // ── Scrollable log table ───────────────────────────────────────────
+        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            Column {
+                LogHeader()
+                Divider()
+
+                if (logs.isEmpty() && !isLoadingMore) {
+                    Text(
+                        "Start logging to see entries here.",
+                        modifier = Modifier
+                            .width(1400.dp)
+                            .padding(16.dp),
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    // Inner LazyColumn for the rows.
+                    // key = { it.id } ensures Compose tracks items by their
+                    // stable DB id. When rows are prepended the existing items
+                    // are moved, not re-composed, so the scroll position holds.
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .width(1400.dp)
+                            // Constrain height so this nested LazyColumn
+                            // doesn't fight with the outer one.
+                            .heightIn(max = 600.dp),
+                        userScrollEnabled = true
+                    ) {
+                        items(items = logs, key = { it.id }) { log ->
                             LogItem(log = log)
                             Divider()
+                        }
+
+                        // Footer: spinner while loading, "all done" when exhausted
+                        item {
+                            when {
+                                isLoadingMore -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                }
+                                !hasMoreLogs -> {
+                                    Text(
+                                        text = "— All ${logs.size} logs loaded —",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -143,6 +261,10 @@ fun StatsScreen(viewModel: NetworkViewModel) {
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reusable composables (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun IntervalSettings(
@@ -164,31 +286,27 @@ fun IntervalSettings(
             enabled = !isLogging
         )
         Spacer(Modifier.width(8.dp))
-        Button(onClick = onSaveClick, enabled = !isLogging) {
-            Text("Save")
-        }
+        Button(onClick = onSaveClick, enabled = !isLogging) { Text("Save") }
     }
 }
 
 @Composable
 fun CurrentStatsView(appState: AppState) {
-    // It takes the current AppState, which contains all the live data.
     val primarySim = appState.simStats
-
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // It checks if there's a valid SIM signal or if the phone is in airplane mode.
-        if (primarySim == null || primarySim.networkType in listOf("Airplane Mode", "No SIM", "No Data SIM", "Data SIM Inactive", "Not Registered")) {
+        if (primarySim == null || primarySim.networkType in listOf(
+                "Airplane Mode", "No SIM", "No Data SIM", "Data SIM Inactive", "Not Registered"
+            )
+        ) {
             Text(
                 text = primarySim?.networkType ?: "No Signal",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.error
             )
         } else {
-            // If there's a valid signal, it calls SimStatColumn to display the details.
             SimStatColumn(sim = primarySim)
         }
         Spacer(Modifier.height(16.dp))
-        // It always displays the current GPS and velocity data at the bottom.
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
             StatCard("Latitude", appState.latitude, Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
@@ -201,19 +319,23 @@ fun CurrentStatsView(appState: AppState) {
 
 @Composable
 fun SimStatColumn(sim: SimStats, modifier: Modifier = Modifier) {
-    // This function determines the correct label for the primary signal strength metric.
     val strengthLabel = when {
         sim.networkType.contains("GSM") -> "RSSI"
         sim.networkType.contains("WCDMA") -> "RSCP"
         else -> "RSRP"
     }
-
-    // It then lays out all the individual stat cards in a column.
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(sim.carrierName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(sim.networkType, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        Text(
+            sim.carrierName,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            sim.networkType,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
         Spacer(Modifier.height(16.dp))
-
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
             StatCard(strengthLabel, sim.rsrp, Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
@@ -244,16 +366,9 @@ fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
             modifier = Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyLarge
-            )
+            Text(text = value, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
@@ -267,22 +382,60 @@ fun LogHeader() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("Time", modifier = Modifier.weight(1.5f), fontWeight = FontWeight.Bold)
-        Text("Device ID", modifier = Modifier.weight(1.5f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-        Text("Carrier", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-        Text("RSRP/...", modifier = Modifier.weight(1.2f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-        Text("DL(Mbps)", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-        Text("UL(Mbps)", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-        Text("Velocity", modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-        Text("Latitude", modifier = Modifier.weight(1.5f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-        Text("Longitude", modifier = Modifier.weight(1.5f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+        Text(
+            "Device ID",
+            modifier = Modifier.weight(1.5f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "Carrier",
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "RSRP/...",
+            modifier = Modifier.weight(1.2f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "DL(Mbps)",
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "UL(Mbps)",
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "Velocity",
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "Latitude",
+            modifier = Modifier.weight(1.5f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "Longitude",
+            modifier = Modifier.weight(1.5f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
 @Composable
 fun LogItem(log: NetworkLog) {
-    val timeOnly = remember(log.timestamp) {
-        log.timestamp.substringAfter(" ")
-    }
+    val timeOnly = remember(log.timestamp) { log.timestamp.substringAfter(" ") }
     Row(
         modifier = Modifier
             .width(1400.dp)
@@ -290,14 +443,38 @@ fun LogItem(log: NetworkLog) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = timeOnly, modifier = Modifier.weight(1.5f))
-        Text(text = log.deviceId, modifier = Modifier.weight(1.5f), textAlign = TextAlign.Center)
-        Text(text = log.carrierName, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+        Text(
+            text = log.deviceId,
+            modifier = Modifier.weight(1.5f),
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = log.carrierName,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center
+        )
         Text(text = log.rsrp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.Center)
-        Text(text = log.downlinkSpeed, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-        Text(text = log.uplinkSpeed, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+        Text(
+            text = log.downlinkSpeed,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = log.uplinkSpeed,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center
+        )
         Text(text = log.velocity, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-        Text(text = log.latitude, modifier = Modifier.weight(1.5f), textAlign = TextAlign.Center)
-        Text(text = log.longitude, modifier = Modifier.weight(1.5f), textAlign = TextAlign.Center)
+        Text(
+            text = log.latitude,
+            modifier = Modifier.weight(1.5f),
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = log.longitude,
+            modifier = Modifier.weight(1.5f),
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -316,7 +493,9 @@ fun LoggingControls(isLogging: Boolean, onStartClick: () -> Unit, onStopClick: (
             Button(
                 onClick = onStopClick,
                 enabled = isLogging,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
             ) { Text("Stop Logging") }
         }
     }
@@ -332,7 +511,6 @@ fun DataManagementControls(
         Row {
             Button(onClick = onExportClick) { Text("Export to CSV") }
             Spacer(Modifier.width(16.dp))
-            // NEW: Added Backup Now button
             Button(onClick = onBackupClick) { Text("Backup Now") }
         }
         Spacer(Modifier.height(8.dp))
@@ -345,14 +523,22 @@ fun DataManagementControls(
 @Composable
 fun PermissionRationale(onPermissionRequested: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Permissions Required", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(
+            "Permissions Required",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "This app needs Location, Phone, and Network State permissions to read network signal information. Please grant these permissions to continue.",
+            text = "This app needs Location, Phone, and Network State permissions to read " +
+                "network signal information. Please grant these permissions to continue.",
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(24.dp))
